@@ -804,7 +804,7 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
         ctx.beginPath(); ctx.arc(0,0,r,0,6.3); ctx.stroke();
         ctx.beginPath(); ctx.arc(0,0,r*.55,0,6.3); ctx.stroke();
         ctx.rotate(t*8); ctx.lineWidth=2;
-        for(let i=0;i<8;i++){ ctx.rotate(.785; ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(r+12,0); ctx.stroke(); }
+        for(let i=0;i<8;i++){ ctx.rotate(.785); ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(r+12,0); ctx.stroke(); }
       }
       ctx.restore(); ctx.globalAlpha=1;
     });
