@@ -225,12 +225,63 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
   }
 
   function segD(px,py,x1,y1,x2,y2){ const vx=x2-x1,vy=y2-y1,l2=vx*vx+vy*vy||1,u=clamp(((px-x1)*vx+(py-y1)*vy)/l2,0,1); return Math.hypot(px-(x1+u*vx),py-(y1+u*vy)); }
+  function riverBlocked(x,y,r){
+    for(const rv of rivers){
+      const open=rv.open||[];
+      for(let i=0;i<rv.pts.length-1;i++){
+        if(open.includes(i)) continue;
+        if(segD(x,y,rv.pts[i].x,rv.pts[i].y,rv.pts[i+1].x,rv.pts[i+1].y)<r+rv.w*.46) return true;
+      }
+    }
+    return false;
+  }
   function blocked(x,y,r){
     if(x<r+10||y<r+10||x>WORLD.w-r-10||y>WORLD.h-r-10) return true;
     for(const rk of rocks) if(Math.hypot(x-rk.x,y-rk.y)<r+rk.r-1) return true;
-    for(const rv of rivers) for(let i=0;i<rv.pts.length-1;i++) if(segD(x,y,rv.pts[i].x,rv.pts[i].y,rv.pts[i+1].x,rv.pts[i+1].y)<r+rv.w*.48) return true;
+    if(riverBlocked(x,y,r)) return true;
     for(const w of walls) if(x>w.x-r&&x<w.x+w.w+r&&y>w.y-r&&y<w.y+w.h+r) return true;
     return false;
+  }
+  const NAV=48; let navW=0,navH=0,nav=null;
+  function buildNav(){
+    navW=Math.ceil(WORLD.w/NAV); navH=Math.ceil(WORLD.h/NAV);
+    nav=new Uint8Array(navW*navH);
+    for(let y=0;y<navH;y++) for(let x=0;x<navW;x++) nav[y*navW+x]=blocked(x*NAV+NAV/2,y*NAV+NAV/2,12)?1:0;
+  }
+  function nAt(x,y){ if(x<0||y<0||x>=navW||y>=navH) return 1; return nav[y*navW+x]; }
+  function nearestWalk(wx,wy){
+    let cx=clamp((wx/NAV)|0,0,navW-1), cy=clamp((wy/NAV)|0,0,navH-1);
+    if(!nAt(cx,cy)) return {x:cx*NAV+NAV/2,y:cy*NAV+NAV/2,cx,cy};
+    for(let r=1;r<=8;r++) for(let dy=-r;dy<=r;dy++) for(let dx=-r;dx<=r;dx++){
+      const x=cx+dx,y=cy+dy; if(!nAt(x,y)) return {x:x*NAV+NAV/2,y:y*NAV+NAV/2,cx:x,cy:y};
+    }
+    return {x:wx,y:wy,cx,cy};
+  }
+  function nextStep(sx,sy,tx,ty){
+    if(!nav) return null;
+    const a=nearestWalk(sx,sy), b=nearestWalk(tx,ty);
+    if(a.cx===b.cx&&a.cy===b.cy) return {x:tx,y:ty};
+    const q=[a.cx,a.cy], seen=new Uint8Array(navW*navH), prev=new Int16Array(navW*navH).fill(-1);
+    seen[a.cy*navW+a.cx]=1; let qi=0, found=false, fx=b.cx, fy=b.cy;
+    while(qi<q.length && q.length<900){
+      const x=q[qi++], y=q[qi++];
+      if(x===b.cx&&y===b.cy){ found=true; fx=x; fy=y; break; }
+      const nb=[[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+      for(const [dx,dy] of nb){
+        const nx=x+dx, ny=y+dy, i=ny*navW+nx;
+        if(nAt(nx,ny)||seen[i]) continue;
+        seen[i]=1; prev[i]=y*navW+x; q.push(nx,ny);
+      }
+    }
+    if(!found) return {x:a.x,y:a.y};
+    let i=fy*navW+fx, guard=0;
+    while(prev[i]>=0 && guard++<80){
+      const p=prev[i];
+      if(p===a.cy*navW+a.cx) break;
+      i=p;
+    }
+    const gx=i%navW, gy=(i/navW)|0;
+    return {x:gx*NAV+NAV/2,y:gy*NAV+NAV/2};
   }
   function tryMove(e,dx,dy){ if(!blocked(e.x+dx,e.y+dy,e.r)){e.x+=dx;e.y+=dy;return true;} if(!blocked(e.x+dx,e.y,e.r)){e.x+=dx;return true;} if(!blocked(e.x,e.y+dy,e.r)){e.y+=dy;return true;} const a=Math.atan2(dy,dx),len=Math.hypot(dx,dy); for(const off of [0.7,-0.7,1.2,-1.2]){ if(!blocked(e.x+Math.cos(a+off)*len,e.y+Math.sin(a+off)*len,e.r)){ e.x+=Math.cos(a+off)*len; e.y+=Math.sin(a+off)*len; return true; } } return false; }
   function keep(x,y,rad){ return Math.hypot(x-CHEST.x,y-CHEST.y)>rad+160; }
@@ -245,17 +296,31 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
   }
   function genWallsOpen(){
     rocks=[];rivers=[];walls=[];
-    for(let n=0;n<3;n++){
-      const pts=[]; let x=n===1?rand(280,WORLD.w-280):(n===0?rand(80,220):rand(WORLD.w-220,WORLD.w-80));
-      let y=n===1?60:rand(220,WORLD.h-220); pts.push({x,y}); const vert=n!==1;
-      for(let k=0;k<8;k++){ if(vert){ y+=(WORLD.h-80)/8; x=clamp(x+rand(-70,70),80,WORLD.w-80);} else { x+=(WORLD.w-80)/8; y=clamp(y+rand(-60,60),80,WORLD.h-80);} if(keep(x,y,30)) pts.push({x,y}); }
-      if(pts.length>=3) rivers.push({pts,w:42});
+    function makeStream(x0,y0,horiz){
+      const pts=[{x:x0,y:y0}];
+      let x=x0,y=y0;
+      for(let k=0;k<7;k++){
+        if(horiz){ x+=(WORLD.w-160)/7; y=clamp(y+rand(-50,50),90,WORLD.h-90); }
+        else { y+=(WORLD.h-160)/7; x=clamp(x+rand(-50,50),90,WORLD.w-90); }
+        if(Math.hypot(x-CHEST.x,y-CHEST.y)<210){
+          if(horiz) y+= (y<CHEST.y?-160:160);
+          else x+= (x<CHEST.x?-160:160);
+          x=clamp(x,90,WORLD.w-90); y=clamp(y,90,WORLD.h-90);
+        }
+        pts.push({x,y});
+      }
+      const open=[];
+      if(pts.length>4){ open.push(2, pts.length-3); }
+      if(pts.length>=4) rivers.push({pts,w:34,open});
     }
-    for(let i=0;i<22;i++){
-      const x=rand(120,WORLD.w-120),y=rand(120,WORLD.h-120),r=rand(16,30);
-      if(keep(x,y,r+20)&&!blocked(x,y,4)) rocks.push({x,y,r,sh:rand(-8,8)});
+    makeStream(rand(90,160), 80, false);
+    makeStream(rand(WORLD.w-160,WORLD.w-90), 80, false);
+    if(Math.random()<.55) makeStream(80, rand(90,180), true);
+    for(let i=0;i<18;i++){
+      const x=rand(140,WORLD.w-140),y=rand(140,WORLD.h-140),r=rand(16,28);
+      if(keep(x,y,r+28)&&!blocked(x,y,8)&&Math.hypot(x-CHEST.x,y-CHEST.y)>220) rocks.push({x,y,r,sh:rand(-8,8)});
     }
-    buildSpots();
+    buildNav(); buildSpots();
   }
   function buildSpots(){
     spots=[]; const add=(x,y)=>{ if(!blocked(x,y,16) && keep(x,y,40)) spots.push({x,y}); };
@@ -291,6 +356,7 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
     }
     walls.push({x:ox,y:oy+rows*ch-thick/2,w:cols*cw,h:thick});
     walls.push({x:ox+cols*cw-thick/2,y:oy,w:thick,h:rows*ch});
+    buildNav();
     raceStart={x:ox+cw*.5,y:oy+(rows-1)*ch+ch*.5};
     raceEnd={x:ox+(cols-1)*cw+cw*.5,y:oy+ch*.5,r:38};
     // punch start/end openings
@@ -432,25 +498,39 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
     if(p.atk) fireP(p); if(p.spec) fireS(p); if(p.lim) fireL(p); if(p.useX) fireOvr(p); if(p.useY) fireIce(p);
   }
 
+  function pickHunt(s){
+    const L=living();
+    const nearP=L.length?L.reduce((b,p)=>dist(s,p)<dist(s,b)?p:b,L[0]):null;
+    const pd=nearP?dist(s,nearP):9999;
+    if(mode!=="defend") return nearP||CHEST;
+    if(!nearP) return CHEST;
+    if(s.kind==="fast") return pd<460?nearP:CHEST;
+    if(s.kind==="tank"||s.kind==="king") return pd<120?nearP:CHEST;
+    if(pd<200) return nearP;
+    if(CHEST.hp/CHEST.max<0.45 && pd>150) return CHEST;
+    return pd<280?nearP:CHEST;
+  }
   function slimeThink(s,dt){
     s.hop+=dt*6; s.hit=Math.max(0,s.hit-dt); s.slow=Math.max(0,s.slow-dt); s.fr=Math.max(0,s.fr-dt);
     if(s.fr>0) return;
-    const L=living(); if(!L.length) return;
-    const target=L.reduce((b,p)=>dist(s,p)<dist(s,b)?p:b,L[0]);
-    let a=ang(s,target);
+    if(blocked(s.x,s.y,s.r)){
+      const w=nearestWalk(s.x,s.y);
+      tryMove(s,(w.x-s.x)*.08,(w.y-s.y)*.08);
+    }
+    const target=pickHunt(s);
+    s.hunt=target===CHEST?"chest":"player";
+    s.pathT=(s.pathT||0)-dt;
+    if(s.pathT<=0 || !s.wx){
+      const step=nextStep(s.x,s.y,target.x,target.y);
+      if(step){ s.wx=step.x; s.wy=step.y; }
+      else { s.wx=target.x; s.wy=target.y; }
+      s.pathT=.28;
+    }
     const iceSlow=iceT>0?0.45:1;
     const sp=s.speed*(s.slow>0?.4:1)*iceSlow;
-    const look=40;
-    const nx=s.x+Math.cos(a)*look, ny=s.y+Math.sin(a)*look;
-    if(blocked(nx,ny,s.r+2)){
-      let best=a, bestOk=-1;
-      for(let i=0;i<10;i++){
-        const aa=a+(i%2?1:-1)*(.4+i*.25);
-        if(!blocked(s.x+Math.cos(aa)*look,s.y+Math.sin(aa)*look,s.r+2)){ best=aa; bestOk=1; break; }
-      }
-      a=best;
-    }
-    tryMove(s,Math.cos(a)*sp*dt,Math.sin(a)*sp*dt);
+    let a=Math.atan2(s.wy-s.y,s.wx-s.x);
+    if(Math.hypot(s.wx-s.x,s.wy-s.y)<18) s.pathT=0;
+    if(!tryMove(s,Math.cos(a)*sp*dt,Math.sin(a)*sp*dt)) s.pathT=0;
     living().forEach(p=>{ if(dist(s,p)<s.r+p.r){ dmgP(p,s.dmg); const u=ang(s,p); tryMove(p,Math.cos(u)*8,Math.sin(u)*8); } });
     if(mode==="defend"&&dist(s,CHEST)<s.r+CHEST.r){ dmgChest(s.dmg*.32); const u=ang(CHEST,s); tryMove(s,Math.cos(u)*12,Math.sin(u)*12); }
   }
@@ -538,7 +618,16 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
     if(mode==="koth"){ const g=ctx.createRadialGradient(HILL.x,HILL.y,20,HILL.x,HILL.y,HILL.r+40); g.addColorStop(0,"#8a7a55"); g.addColorStop(.55,"#5a6b3a"); g.addColorStop(1,"rgba(58,92,52,0)"); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(HILL.x,HILL.y,HILL.r+40,0,6.3); ctx.fill(); ctx.fillStyle="#6b5a38"; ctx.beginPath(); ctx.arc(HILL.x,HILL.y,HILL.r,0,6.3); ctx.fill(); ctx.fillStyle="#c9b27a"; ctx.beginPath(); ctx.arc(HILL.x,HILL.y,28,0,6.3); ctx.fill(); }
     if(mode==="race"&&raceEnd){ ctx.strokeStyle="#c9b27a"; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(raceEnd.x,raceEnd.y,raceEnd.r,0,6.3); ctx.stroke(); ctx.fillStyle="#c9b27a"; ctx.font="bold 12px Trebuchet MS"; ctx.textAlign="center"; ctx.fillText("SAÍDA",raceEnd.x,raceEnd.y-46); }
     flowers.forEach(f=>{ ctx.fillStyle=f.c; ctx.beginPath(); ctx.arc(f.x,f.y,2,0,6.3); ctx.fill(); });
-    rivers.forEach(rv=>{ ctx.lineCap="round"; ctx.strokeStyle="#1a4d62"; ctx.lineWidth=rv.w+10; ctx.beginPath(); ctx.moveTo(rv.pts[0].x,rv.pts[0].y); rv.pts.forEach(p=>ctx.lineTo(p.x,p.y)); ctx.stroke(); ctx.strokeStyle="#2f86a4"; ctx.lineWidth=rv.w; ctx.beginPath(); ctx.moveTo(rv.pts[0].x,rv.pts[0].y); rv.pts.forEach(p=>ctx.lineTo(p.x,p.y)); ctx.stroke(); });
+    rivers.forEach(rv=>{
+      const open=rv.open||[];
+      for(let i=0;i<rv.pts.length-1;i++){
+        const a=rv.pts[i], b=rv.pts[i+1], gap=open.includes(i);
+        ctx.lineCap="round";
+        ctx.strokeStyle=gap?"#8a7a52":"#1a4d62"; ctx.lineWidth=gap?18:rv.w+10;
+        ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+        if(!gap){ ctx.strokeStyle="#2f86a4"; ctx.lineWidth=rv.w; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+      }
+    });
     walls.forEach(w=>{ ctx.fillStyle="#4a4e54"; ctx.fillRect(w.x,w.y,w.w,w.h); ctx.fillStyle="#5c6168"; ctx.fillRect(w.x,w.y,w.w,4); });
     rocks.forEach(rk=>{ ctx.fillStyle=`hsl(0,0%,${36+rk.sh}%)`; ctx.beginPath(); ctx.arc(rk.x,rk.y,rk.r,0,6.3); ctx.fill(); if(!lo()){ ctx.fillStyle=`hsl(0,0%,${50+rk.sh}%)`; ctx.beginPath(); ctx.arc(rk.x-rk.r*.25,rk.y-rk.r*.28,rk.r*.4,0,6.3); ctx.fill(); } });
     bushes.forEach(b=>{ ctx.fillStyle="#2f5a28"; ctx.beginPath(); ctx.arc(b.x-5,b.y,b.s*.7,0,6.3); ctx.arc(b.x+5,b.y,b.s*.75,0,6.3); ctx.arc(b.x,b.y-4,b.s*.8,0,6.3); ctx.fill(); });
@@ -552,6 +641,20 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
       ctx.fillStyle="rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse(0,12,12,5,0,0,6.3); ctx.fill();
       ctx.fillStyle=p.hurt>0?"#fff":p.char.color; ctx.beginPath(); ctx.arc(0,0,15,0,6.3); ctx.fill();
       ctx.strokeStyle="rgba(0,0,0,.3)"; ctx.stroke();
+      (function drawEyes(){
+        const frame=(t*60)|0, blink=(frame%64)<7, low=(p.hp/p.max)<0.3;
+        const eyes=[[-4.2,-3.2],[4.2,-3.2]];
+        ctx.strokeStyle="#111"; ctx.fillStyle="#111"; ctx.lineWidth=1.6; ctx.lineCap="round";
+        eyes.forEach(([ex,ey])=>{
+          if(blink && low){
+            ctx.beginPath(); ctx.moveTo(ex-2.2,ey-2.2); ctx.lineTo(ex+2.2,ey+2.2); ctx.moveTo(ex+2.2,ey-2.2); ctx.lineTo(ex-2.2,ey+2.2); ctx.stroke();
+          } else if(blink){
+            ctx.beginPath(); ctx.moveTo(ex-2.1,ey); ctx.lineTo(ex+2.1,ey); ctx.stroke();
+          } else {
+            ctx.beginPath(); ctx.arc(ex,ey,2.05,0,6.3); ctx.fill();
+          }
+        });
+      })();
       ctx.save(); ctx.rotate(p.ang); ctx.translate(16,0);
       const w=p.char.weapon;
       if(w==="bow"){ ctx.strokeStyle="#6b3e18"; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(2,0,10,-1.2,1.2); ctx.stroke(); }
@@ -635,7 +738,7 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
     if(seed!=null) seedRng(seed);
     if(mode==="race") genMaze();
     else { if(mode==="defend") pathsDef(); else paths=[]; genWallsOpen(); }
-    genDecor(); CHEST.hp=100; CHEST.max=100; freeRng();
+    genDecor(); buildNav(); CHEST.hp=100; CHEST.max=100; freeRng();
   }
   async function beginNet(msg){ mode=msg.mode; await showLoad("Carregando...",1000); setupWorld(msg.seed); actors=[]; (msg.roster||[]).forEach((r,i)=>{ const sp=spawnAt(i,r.team); actors.push(makeA(r.id,r.cid,sp.x,sp.y,r.name,r.team)); }); startPlay(); }
   async function startLocal(){ mode="defend"; net.role="solo"; net.meId="local"; await showLoad("Preparando a colina...",800); setupWorld(); const sp=spawnAt(0,0); actors=[makeA("local",selChar,sp.x,sp.y,user||charOf(selChar).name,0)]; startPlay(); }
