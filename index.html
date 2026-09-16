@@ -58,15 +58,16 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
 .lbar{width:min(320px,80vw);height:12px;background:#141618;border:1px solid #5a6168;border-radius:10px;overflow:hidden}
 .lbar>i{display:block;height:100%;width:0;background:#8b929a}
 #pads{position:fixed;inset:0;pointer-events:none;z-index:4;display:none}
-#joyBase,#btnP,#btnS,#btnL,#btnX,#btnY{pointer-events:auto;position:absolute}
+#joyBase,#btnP,#btnS,#btnL,#btnX,#btnY,#btnR{pointer-events:auto;position:absolute}
 #joyBase{width:132px;height:132px;border-radius:50%;background:rgba(28,31,35,.45);border:3px solid rgba(200,210,220,.28)}
 #joyKnob{position:absolute;left:41px;top:41px;width:50px;height:50px;border-radius:50%;background:rgba(200,210,220,.8)}
 .abtn{border-radius:50%;border:3px solid rgba(255,255,255,.22);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.05;box-shadow:0 8px 0 rgba(0,0,0,.35)}
 #btnP{width:78px;height:78px;background:#8a3a32;font-size:13px}
 #btnS{width:64px;height:64px;background:#2f5aa8;font-size:11px}
 #btnL{width:58px;height:58px;background:#6a3d9a;font-size:11px}
-#btnX,#btnY{width:50px;height:50px;font-size:10px;display:none}
-#btnX{background:#7a3030}#btnY{background:#2a6a7a}
+#btnX,#btnY,#btnR{width:50px;height:50px;font-size:10px}
+#btnX,#btnY{display:none}
+#btnX{background:#7a3030}#btnY{background:#2a6a7a}#btnR{background:#2e7a48}
 #pauseBtn{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:5;pointer-events:auto;display:none;background:#1c1f23;color:#d7dde3;border:1px solid #5a6168;border-radius:10px;padding:6px 12px;font-weight:800}
 .flash{position:fixed;inset:0;pointer-events:none;z-index:3;display:none}
 </style>
@@ -100,6 +101,7 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
   <div id="joyBase"><div id="joyKnob"></div></div>
   <div class="abtn" id="btnY">GELO</div>
   <div class="abtn" id="btnX">SOBRE</div>
+  <div class="abtn" id="btnR">CURA</div>
   <div class="abtn" id="btnL">ESP2</div>
   <div class="abtn" id="btnS">ESP1</div>
   <div class="abtn" id="btnP">ATK</div>
@@ -159,7 +161,7 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
   let leaves=[],trees=[],bushes=[],flowers=[],paths=[],rocks=[],rivers=[],spots=[];
   let maze=[], raceStart=null, raceEnd=null, boss=null;
   let wave=1,toSpawn=0,spawnWait=0,waveWait=0,kills=0,runCoins=0,shake=0,orbT=0,iceT=0,scoreNeed=50;
-  let qPressed=false,wantS=false,wantP=false,wantX=false,wantY=false;
+  let qPressed=false,wantS=false,wantP=false,wantX=false,wantY=false,wantR=false;
   const keys=Object.create(null), mouse={x:400,y:300,down:false,rd:false}, joy={mx:0,my:0};
   const net={role:"solo",peer:null,conns:[],key:null,lobby:[],meId:"local",acc:0,nid:1};
 
@@ -195,7 +197,7 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
 
   function resize(){ dpr=Math.min(devicePixelRatio||1, hi()?2:1.4); W=innerWidth; H=innerHeight; canvas.width=W*dpr; canvas.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); }
   addEventListener("resize",resize); resize();
-  addEventListener("keydown",e=>{ keys[e.code]=true; if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code)) e.preventDefault(); if(e.code==="KeyQ") qPressed=true; if(e.code==="KeyE") wantX=true; if(e.code==="KeyF") wantY=true; if(e.code==="Escape"&&state==="play") openPause(); });
+  addEventListener("keydown",e=>{ keys[e.code]=true; if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code)) e.preventDefault(); if(e.code==="KeyQ") qPressed=true; if(e.code==="KeyE") wantX=true; if(e.code==="KeyF") wantY=true; if(e.code==="KeyR") wantR=true; if(e.code==="Escape"&&state==="play") openPause(); });
   addEventListener("keyup",e=>keys[e.code]=false);
   canvas.addEventListener("mousedown",e=>{ if(e.button===0) mouse.down=true; if(e.button===2) mouse.rd=true; });
   addEventListener("mouseup",e=>{ if(e.button===0) mouse.down=false; if(e.button===2) mouse.rd=false; });
@@ -207,6 +209,7 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
   bindPad(document.getElementById("btnS"),()=>wantS=true,()=>wantS=false);
   bindPad(document.getElementById("btnL"),()=>{qPressed=true;},()=>{});
   bindPad(document.getElementById("btnX"),()=>{wantX=true;},()=>{});
+  bindPad(document.getElementById("btnR"),()=>{wantR=true;},()=>{});
   bindPad(document.getElementById("btnY"),()=>{wantY=true;},()=>{});
   const joyBase=document.getElementById("joyBase"), joyKnob=document.getElementById("joyKnob");
   function setKnob(x,y){ joyKnob.style.left=(41+x*34)+"px"; joyKnob.style.top=(41+y*34)+"px"; }
@@ -219,9 +222,9 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
   function layoutPads(){
     const L=cfg.left, four=cfg.four!==false;
     const jb=joyBase.style, p=document.getElementById("btnP").style, s=document.getElementById("btnS").style, l=document.getElementById("btnL").style;
-    const x=document.getElementById("btnX").style, y=document.getElementById("btnY").style;
-    if(!L){ jb.left="16px"; jb.right=""; jb.bottom="22px"; p.right="22px"; p.left=""; p.bottom="28px"; s.right="108px"; s.left=""; s.bottom="86px"; l.right="18px"; l.left=""; l.bottom="118px"; x.right=four?"92px":""; x.left=""; x.bottom="160px"; y.right=four?"160px":""; y.left=""; y.bottom="118px"; }
-    else { jb.right="16px"; jb.left=""; jb.bottom="22px"; p.left="22px"; p.right=""; p.bottom="28px"; s.left="108px"; s.right=""; s.bottom="86px"; l.left="18px"; l.right=""; l.bottom="118px"; x.left=four?"92px":""; x.right=""; x.bottom="160px"; y.left=four?"160px":""; y.right=""; y.bottom="118px"; }
+    const x=document.getElementById("btnX").style, y=document.getElementById("btnY").style, r=document.getElementById("btnR").style;
+    if(!L){ jb.left="16px"; jb.right=""; jb.bottom="22px"; p.right="22px"; p.left=""; p.bottom="28px"; s.right="108px"; s.left=""; s.bottom="86px"; l.right="18px"; l.left=""; l.bottom="118px"; x.right=four?"92px":""; x.left=""; x.bottom="160px"; y.right=four?"160px":""; y.left=""; y.bottom="118px"; r.right="18px"; r.left=""; r.bottom="186px"; }
+    else { jb.right="16px"; jb.left=""; jb.bottom="22px"; p.left="22px"; p.right=""; p.bottom="28px"; s.left="108px"; s.right=""; s.bottom="86px"; l.left="18px"; l.right=""; l.bottom="118px"; x.left=four?"92px":""; x.right=""; x.bottom="160px"; y.left=four?"160px":""; y.right=""; y.bottom="118px"; r.left="18px"; r.right=""; r.bottom="186px"; }
   }
 
   function segD(px,py,x1,y1,x2,y2){ const vx=x2-x1,vy=y2-y1,l2=vx*vx+vy*vy||1,u=clamp(((px-x1)*vx+(py-y1)*vy)/l2,0,1); return Math.hypot(px-(x1+u*vx),py-(y1+u*vy)); }
@@ -376,7 +379,7 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
     }
     Object.assign(p,{char:c,r:15,hp,max:hp,speed:sp,dmgMul:dm,regen,ene,hasOvr,hasIce,
       sparkN:0,ang:0,s1:0,s2:0,cdP:0,cdS:0,cdL:0,cdX:0,cdY:0,hurt:0,inv:0,step:0,alive:true,
-      mx:0,my:0,ax:p.x+1,ay:p.y,atk:false,spec:false,lim:false,useX:false,useY:false,score:0,shield:0,team:p.team||0});
+      mx:0,my:0,ax:p.x+1,ay:p.y,atk:false,spec:false,lim:false,useX:false,useY:false,useR:false,heals:1,score:0,shield:0,team:p.team||0});
   }
   function makeA(id,cid,x,y,name,team){ const p={id,name:name||charOf(cid).name,x,y,team:team||0}; applyBuild(p,cid); return p; }
   function me(){ return actors.find(a=>a.id===net.meId)||actors[0]; }
@@ -474,13 +477,14 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
   }
   function fireOvr(p){ if(!p.hasOvr||p.cdX>0||!p.alive) return; p.cdX=8; const dmg=28+p.hasOvr*18; p.hp=Math.max(1,p.hp-dmg*.45); shake=10; flash("rgba(220,40,40,.28)",90); addFx({type:"nova",x:p.x,y:p.y,life:.5}); slimes.concat(foes(p)).concat([p]).forEach(s=>{ if(s!==p) hit(s,dmg,0.4,10,p); }); addTx(p.x,p.y-30,"Sobre-poder","#ff8080"); }
   function fireIce(p){ if(!p.hasIce||p.cdY>0||!p.alive) return; p.cdY=10; iceT=2.2+p.hasIce*.8; flash("rgba(160,220,255,.25)",120); addFx({type:"frost",x:p.x,y:p.y,life:.6}); slimes.concat(living()).forEach(s=>{ s.slow=Math.max(s.slow||0,2+p.hasIce); s.fr=Math.max(s.fr||0,1.2); }); }
+  function fireHeal(p){ if(!p.alive||(p.heals||0)<=0) return; p.heals=0; p.hp=p.max; p.inv=Math.max(p.inv,.4); addFx({type:"nova",x:p.x,y:p.y,life:.45,col:"#7dcf8a"}); addTx(p.x,p.y-32,"Recuperação","#7dcf8a"); beep(520,.12,"sine",.05); }
 
   function inputs(p){
     let mx=joy.mx,my=joy.my;
     if(keys.KeyW||keys.ArrowUp) my-=1; if(keys.KeyS||keys.ArrowDown) my+=1; if(keys.KeyA||keys.ArrowLeft) mx-=1; if(keys.KeyD||keys.ArrowRight) mx+=1;
     p.mx=mx; p.my=my; const w=toW(mouse); p.ax=w.x; p.ay=w.y;
     p.atk=mouse.down||wantP; p.spec=mouse.rd||keys.Space||wantS; p.lim=qPressed; qPressed=false;
-    p.useX=wantX||keys.KeyE; p.useY=wantY||keys.KeyF; wantX=false; wantY=false;
+    p.useX=wantX||keys.KeyE; p.useY=wantY||keys.KeyF; p.useR=wantR||keys.KeyR; wantX=false; wantY=false; wantR=false;
   }
   function sim(p,dt){
     if(!p.alive) return;
@@ -495,7 +499,7 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
     if(mode==="koth"&&Math.hypot(p.x-HILL.x,p.y-HILL.y)<HILL.r){ p.score=(p.score||0)+dt; if(p.score>=scoreNeed) endGame(p.name+" dominou a colina!",true); }
     if(mode==="race"&&raceEnd&&Math.hypot(p.x-raceEnd.x,p.y-raceEnd.y)<raceEnd.r) endGame(p.name+" venceu a Pack Race!",true);
     if(p.fr>0) return;
-    if(p.atk) fireP(p); if(p.spec) fireS(p); if(p.lim) fireL(p); if(p.useX) fireOvr(p); if(p.useY) fireIce(p);
+    if(p.atk) fireP(p); if(p.spec) fireS(p); if(p.lim) fireL(p); if(p.useX) fireOvr(p); if(p.useY) fireIce(p); if(p.useR) fireHeal(p);
   }
 
   function pickHunt(s){
@@ -603,9 +607,11 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
       (mode==="ffa"||mode==="team2"||mode==="team4")?("Vivos <b>"+living().length+"</b>"):
       ("Onda <b>"+wave+"</b>");
     document.getElementById("runCoins").textContent=runCoins;
-    const c=p.char; document.getElementById("abilText").innerHTML=`<b>${p.name}</b> · ${c.name} · ${skillOf(selSkill).name}<br>${c.pName} · ${c.sName} · ${c.lName}${p.hasOvr?" · E Sobre":""}${p.hasIce?" · F Gelo":""}`;
+    const c=p.char; document.getElementById("abilText").innerHTML=`<b>${p.name}</b> · ${c.name} · ${skillOf(selSkill).name}<br>${c.pName} · ${c.sName} · ${c.lName} · Cura R (${p.heals||0})${p.hasOvr?" · E Sobre":""}${p.hasIce?" · F Gelo":""}`;
     const sk=skillOf(selSkill);
     document.getElementById("btnX").style.display=(pads.style.display==="block"&&sk.g==="ovr")?"flex":"none";
+    document.getElementById("btnR").style.display=pads.style.display==="block"?"flex":"none";
+    document.getElementById("btnR").style.opacity=(p.heals||0)>0?"1":".35";
     document.getElementById("btnY").style.display=(pads.style.display==="block"&&sk.g==="ice")?"flex":"none";
   }
 
@@ -692,7 +698,7 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
 
   function code(){ const s="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let k=""; for(let i=0;i<5;i++) k+=s[irand(0,s.length-1)]; return k; }
   function broadcast(m){ net.conns.forEach(c=>{ try{c.send(m);}catch(e){} }); }
-  function sendIn(){ const p=me(); if(!p||!net.conns[0]) return; inputs(p); try{ net.conns[0].send({t:"in",mx:p.mx,my:p.my,ax:p.ax,ay:p.ay,atk:p.atk,spec:p.spec,lim:p.lim,x:p.useX,y:p.useY}); }catch(e){} }
+  function sendIn(){ const p=me(); if(!p||!net.conns[0]) return; inputs(p); try{ net.conns[0].send({t:"in",mx:p.mx,my:p.my,ax:p.ax,ay:p.ay,atk:p.atk,spec:p.spec,lim:p.lim,x:p.useX,y:p.useY,r:p.useR}); }catch(e){} }
   function sendState(){ broadcast({t:"st",wave,kills,coins:runCoins,mode,chest:CHEST.hp,iceT,
     actors:actors.map(a=>({id:a.id,name:a.name,cid:a.char.id,x:a.x,y:a.y,hp:a.hp,max:a.max,ang:a.ang,alive:a.alive,s1:a.s1,s2:a.s2,hurt:a.hurt,team:a.team,score:a.score,shield:a.shield})),
     slimes:slimes.map(s=>({nid:s.nid,x:s.x,y:s.y,r:s.r,col:s.col,kind:s.kind,hp:s.hp,max:s.max,hop:s.hop,fr:s.fr})),
@@ -712,7 +718,7 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
     conn.on("data",msg=>{
       if(!msg||!msg.t) return;
       if(host&&msg.t==="hello"){ if(net.lobby.length>=8) return; if(!net.lobby.find(p=>p.id===conn.peer)) net.lobby.push({id:conn.peer,name:msg.name||"Convidado",cid:msg.cid||"kai",host:false,team:net.lobby.length%4}); sendLobby(); renderLobby(); }
-      if(host&&msg.t==="in"){ const p=actors.find(a=>a.id===conn.peer); if(p){ p.mx=msg.mx;p.my=msg.my;p.ax=msg.ax;p.ay=msg.ay;p.atk=msg.atk;p.spec=msg.spec;p.lim=msg.lim;p.useX=msg.x;p.useY=msg.y; } }
+      if(host&&msg.t==="in"){ const p=actors.find(a=>a.id===conn.peer); if(p){ p.mx=msg.mx;p.my=msg.my;p.ax=msg.ax;p.ay=msg.ay;p.atk=msg.atk;p.spec=msg.spec;p.lim=msg.lim;p.useX=msg.x;p.useY=msg.y;p.useR=msg.r; } }
       if(!host&&msg.t==="lobby"){ net.lobby=msg.lobby; mode=msg.mode; renderLobby(); }
       if(!host&&msg.t==="start") beginNet(msg);
       if(!host&&msg.t==="st"&&state==="play") applySt(msg);
@@ -801,13 +807,15 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
         <button class="ghost" id="goChars" style="margin:0">Personagens</button>
         <button class="ghost" id="goSkills" style="margin:0">Skills</button>
         <button class="ghost" id="goSet" style="margin:0">Configs</button>
+        <button class="ghost" id="goTier" style="margin:0">Tier list</button>
       </div>
-      <p class="help">ATK clique · ESP1 espaço · ESP2 Q · Sobre E · Gelo F</p></div>`);
+      <p class="help">ATK clique · ESP1 espaço · ESP2 Q · Cura R (1x) · Sobre E · Gelo F</p></div>`);
       document.getElementById("btnStart").onclick=()=>startLocal();
       document.getElementById("goOn").onclick=()=>{screen="online";renderMenu();};
       document.getElementById("goChars").onclick=()=>{screen="chars";renderMenu();};
       document.getElementById("goSkills").onclick=()=>{screen="skills";renderMenu();};
       document.getElementById("goSet").onclick=()=>{screen="set";renderMenu();};
+      document.getElementById("goTier").onclick=()=>{screen="tier";renderMenu();};
     } else if(screen==="online"){
       nav(`<div class="card" style="max-width:520px">${LOGO}<h1>Online</h1><p class="sub">O dono escolhe o modo na sala.</p><button class="cta" id="mk">Criar sala</button><h2>Entrar</h2><input id="inkey" type="text" maxlength="8" placeholder="CHAVE"/><button class="cta" id="jn">Entrar</button><button class="ghost" id="back">Voltar</button></div>`);
       document.getElementById("mk").onclick=hostRoom; document.getElementById("jn").onclick=()=>joinRoom(document.getElementById("inkey").value); document.getElementById("back").onclick=()=>{screen="home";renderMenu();};
@@ -833,6 +841,15 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
       document.getElementById("lh").onclick=()=>{ cfg.left=!cfg.left; save(); layoutPads(); renderMenu(); };
       document.getElementById("ff").onclick=()=>{ cfg.four=!(cfg.four!==false); save(); layoutPads(); renderMenu(); };
       document.getElementById("ren").onclick=()=>{ screen="name"; renderMenu(); };
+      document.getElementById("back").onclick=()=>{ screen="home"; renderMenu(); };
+    } else if(screen==="tier"){
+      nav(`<div class="card" style="max-width:560px">${LOGO}<h1>Tier list</h1>
+        <p class="sub">Com o elenco atual. Muda se o mapa ou o modo mudar.</p>
+        <div class="pick on"><h3>S — Nok</h3><p>Bumerangue segura linha. Acerto garantido limpa a tela. Eixo defende sozinho. Melhor no baú e no boss.</p></div>
+        <div class="pick"><h3>A — Meil</h3><p>Alcance e chuva controlam grupo. Fraca se o inimigo cola. Melhor no FFA e na colina.</p></div>
+        <div class="pick"><h3>A — Kai</h3><p>Simples, firme e barato. Giro e fissura punem quem chega perto. Melhor para começar e no time.</p></div>
+        <div class="pick"><h3>B — Rist</h3><p>Corte rápido e dash são bons. Titânio dói, mas o atraso pune. Melhor se você acerta o timing.</p></div>
+        <button class="ghost" id="back">Voltar</button></div>`);
       document.getElementById("back").onclick=()=>{ screen="home"; renderMenu(); };
     }
   }
