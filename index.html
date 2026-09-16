@@ -242,13 +242,13 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
     for(const w of walls) if(x>w.x-r&&x<w.x+w.w+r&&y>w.y-r&&y<w.y+w.h+r) return true;
     return false;
   }
-  const NAV=48; let navW=0,navH=0,nav=null;
+  const NAV=48; let navW=0,navH=0,grid=null;
   function buildNav(){
     navW=Math.ceil(WORLD.w/NAV); navH=Math.ceil(WORLD.h/NAV);
-    nav=new Uint8Array(navW*navH);
-    for(let y=0;y<navH;y++) for(let x=0;x<navW;x++) nav[y*navW+x]=blocked(x*NAV+NAV/2,y*NAV+NAV/2,12)?1:0;
+    grid=new Uint8Array(navW*navH);
+    for(let y=0;y<navH;y++) for(let x=0;x<navW;x++) grid[y*navW+x]=blocked(x*NAV+NAV/2,y*NAV+NAV/2,12)?1:0;
   }
-  function nAt(x,y){ if(x<0||y<0||x>=navW||y>=navH) return 1; return nav[y*navW+x]; }
+  function nAt(x,y){ if(x<0||y<0||x>=navW||y>=navH) return 1; return grid[y*navW+x]; }
   function nearestWalk(wx,wy){
     let cx=clamp((wx/NAV)|0,0,navW-1), cy=clamp((wy/NAV)|0,0,navH-1);
     if(!nAt(cx,cy)) return {x:cx*NAV+NAV/2,y:cy*NAV+NAV/2,cx,cy};
@@ -258,7 +258,7 @@ input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid #4a
     return {x:wx,y:wy,cx,cy};
   }
   function nextStep(sx,sy,tx,ty){
-    if(!nav) return null;
+    if(!grid) return null;
     const a=nearestWalk(sx,sy), b=nearestWalk(tx,ty);
     if(a.cx===b.cx&&a.cy===b.cy) return {x:tx,y:ty};
     const q=[a.cx,a.cy], seen=new Uint8Array(navW*navH), prev=new Int16Array(navW*navH).fill(-1);
