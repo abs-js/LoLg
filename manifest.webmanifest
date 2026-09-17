@@ -1,0 +1,19 @@
+{
+  "name": "Hill Fight",
+  "short_name": "H.F.",
+  "description": "Fight game.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#111316",
+  "theme_color": "#1c1f23",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
