@@ -1,0 +1,7 @@
+{
+  "id": "hillfight",
+  "version": "1.0.0",
+  "entry": "index.html",
+  "keep": ["index.html", "icon.svg"],
+  "files": ["icon.svg", "card.png"]
+}
