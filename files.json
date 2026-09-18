@@ -3,5 +3,6 @@
   "version": "1.0.0",
   "entry": "index.html",
   "keep": ["index.html", "icon.svg"],
-  "files": ["icon.svg", "card.png"]
+  "files": ["icon.svg", "card.png"],
+  "description": "Lute neste jogo de batalha onde temos vários lutadores. Conecte-se no wifi de seus amigos e começem a lutar!"
 }
